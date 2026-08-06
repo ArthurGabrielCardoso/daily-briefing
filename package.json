@@ -7,13 +7,15 @@
     "dev": "concurrently \"vite\" \"node server.js\"",
     "build": "vite build",
     "start": "node server.js",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "audio": "node server/generate-audio.js"
   },
   "dependencies": {
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "express": "^4.19.2",
     "lucide-react": "^1.29.0",
+    "music-metadata": "^11.14.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "react-router-dom": "^7.18.2",

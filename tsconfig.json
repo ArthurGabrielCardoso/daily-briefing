@@ -15,7 +15,11 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
-    "paths": { "@/*": ["./src/*"] }
+    "allowJs": true,
+    "paths": {
+      "@/*": ["./src/*"],
+      "@shared/*": ["./shared/*"]
+    }
   },
-  "include": ["src", "vite.config.ts", "tailwind.config.ts"]
+  "include": ["src", "shared", "vite.config.ts", "tailwind.config.ts"]
 }

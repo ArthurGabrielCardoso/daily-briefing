@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { formatClock, voiceLabel, type UseSpeechResult } from '@/hooks/useSpeech';
+import { formatClock, type UseSpeechResult } from '@/hooks/useSpeech';
 
 /** Full-detail waveform; smaller widths sample this down so it always fits. */
 const MAX_BARS = 64;
@@ -84,9 +84,6 @@ export function AudioPlayer({ speech, compact }: AudioPlayerProps) {
     paused,
     rate,
     resumeIndex,
-    voices,
-    voiceURI,
-    setVoice,
     setRate,
     toggle,
     stop,
@@ -226,26 +223,6 @@ export function AudioPlayer({ speech, compact }: AudioPlayerProps) {
       </div>
 
       <div className="player-controls-right">
-        {voices.length > 1 ? (
-          <label className="voice-select" title="Trocar a voz da narração">
-            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-              <path d="M12 3a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V6a3 3 0 0 1 3-3z" />
-              <path d="M5 11a1 1 0 0 1 2 0 5 5 0 0 0 10 0 1 1 0 0 1 2 0 7 7 0 0 1-6 6.92V21h-2v-3.08A7 7 0 0 1 5 11z" />
-            </svg>
-            <select
-              value={voiceURI ?? ''}
-              onChange={(e) => setVoice(e.target.value)}
-              aria-label="Voz da narração"
-            >
-              {voices.map((v) => (
-                <option key={v.voiceURI} value={v.voiceURI}>
-                  {voiceLabel(v)}
-                </option>
-              ))}
-            </select>
-          </label>
-        ) : null}
-
         <div className="speed-select" role="group" aria-label="Velocidade da narração">
           {SPEEDS.map((s) => (
             <button

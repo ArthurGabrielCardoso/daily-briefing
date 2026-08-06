@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { parseBriefing, type Briefing } from '@/types/briefing';
-import { useSpeech } from '@/hooks/useSpeech';
+import { useAudioManifest, useNarration } from '@/hooks/useNarration';
+import { materiaOffsets, readBlocksOf } from '@shared/readBlocks.js';
 import { ReadingProvider } from '@/components/ReadBlock';
 import { Masthead } from '@/components/Masthead';
 import { SeuDia } from '@/components/SeuDia';
@@ -86,22 +87,9 @@ function BriefingView({ briefing }: { briefing: Briefing }) {
     };
   }, []);
 
-  /** Read blocks in document order: the cover lede, then every paragraph. */
-  const readBlocks = useMemo(() => {
-    const list: string[] = [briefing.capa.sub];
-    briefing.materias.forEach((m) => list.push(...m.paragrafos));
-    return list;
-  }, [briefing]);
-
-  /** Global reading index of each matéria's first paragraph. */
-  const offsets = useMemo(() => {
-    let n = 1; // the cover lede occupies index 0
-    return briefing.materias.map((m) => {
-      const start = n;
-      n += m.paragrafos.length;
-      return start;
-    });
-  }, [briefing]);
+  // Shared with the audio generator so block N means the same thing on both sides.
+  const readBlocks = useMemo(() => readBlocksOf(briefing), [briefing]);
+  const offsets = useMemo(() => materiaOffsets(briefing), [briefing]);
 
   const railItems = useMemo<RailItem[]>(() => {
     const items: RailItem[] = [{ id: 'capa', label: 'Capa' }];
@@ -111,7 +99,8 @@ function BriefingView({ briefing }: { briefing: Briefing }) {
     return items;
   }, [briefing]);
 
-  const speech = useSpeech(readBlocks, `briefing:pos:${briefing.date}`);
+  const { manifest } = useAudioManifest(briefing.date);
+  const speech = useNarration(readBlocks, manifest, `briefing:pos:${briefing.date}`);
 
   useEffect(() => {
     const el = articleRef.current;

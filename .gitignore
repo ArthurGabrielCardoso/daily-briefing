@@ -2,3 +2,6 @@ node_modules
 dist
 .env
 .DS_Store
+
+# runtime state — seeded from seed/ on boot, persisted by the Railway volume
+/data
