@@ -17,6 +17,9 @@ const MAX_CHUNK = 200;
 /** Starting guess for pt-BR narration speed, refined from real timings. */
 const BASE_CHARS_PER_SEC = 14.5;
 
+/** Voice preference is per reader, not per edition. */
+const VOICE_KEY = 'briefing:voice';
+
 export function splitForSpeech(text: string, max = MAX_CHUNK): string[] {
   const trimmed = text.trim();
   if (!trimmed) return [];
@@ -50,22 +53,36 @@ export function splitForSpeech(text: string, max = MAX_CHUNK): string[] {
 }
 
 /**
- * Network-backed voices ("Google", "Natural", "Neural", "Online") sound far
- * better than the default local ones — score them up. Non-Portuguese voices
- * are rejected outright.
+ * Ranks the Portuguese voices a device offers. Network-backed and "enhanced"
+ * variants sound far better than the default local ones, but which one a given
+ * phone or laptop actually has varies wildly — the ranking only decides the
+ * starting point, and the reader can override it from the player.
  */
-function scoreVoice(v: SpeechSynthesisVoice): number {
+export function scoreVoice(v: SpeechSynthesisVoice): number {
   let score = 0;
   const name = v.name || '';
   const lang = (v.lang || '').toLowerCase().replace('_', '-');
   if (lang === 'pt-br') score += 10;
   else if (lang.indexOf('pt') === 0) score += 5;
   else return -1;
-  if (/google/i.test(name)) score += 8;
-  if (/natural|online|neural/i.test(name)) score += 7;
+  if (/natural|neural/i.test(name)) score += 9;
+  if (/premium|enhanced|siri/i.test(name)) score += 8;
+  if (/google/i.test(name)) score += 7;
+  if (/online/i.test(name)) score += 5;
   if (/microsoft/i.test(name)) score += 3;
   if (v.localService === false) score += 2;
+  // "Compact" voices are the low-bitrate fallbacks — audibly the worst.
+  if (/compact/i.test(name)) score -= 8;
   return score;
+}
+
+/** Trims the OS boilerplate so the picker shows something readable. */
+export function voiceLabel(v: SpeechSynthesisVoice): string {
+  return (v.name || 'Voz')
+    .replace(/\s*-\s*Portuguese \(Brazil\)\s*/i, '')
+    .replace(/\s*\(Brazil\)\s*/i, '')
+    .replace(/português do Brasil/i, '(pt-BR)')
+    .trim();
 }
 
 export function formatClock(seconds: number): string {
@@ -98,6 +115,11 @@ export interface UseSpeechResult {
   rate: number;
   /** Saved block index from a previous visit, or 0 when there is none. */
   resumeIndex: number;
+  /** Portuguese voices this device offers, best first. */
+  voices: SpeechSynthesisVoice[];
+  /** voiceURI of the voice in use, or null while none is resolved. */
+  voiceURI: string | null;
+  setVoice: (uri: string) => void;
   setRate: (rate: number) => void;
   /** Play / pause / resume on a single control. */
   toggle: () => void;
@@ -122,6 +144,8 @@ export function useSpeech(blocks: string[], storageKey?: string): UseSpeechResul
   const [pieceFrac, setPieceFrac] = useState(0);
   const [charsPerSec, setCharsPerSec] = useState(BASE_CHARS_PER_SEC);
   const [resumeIndex, setResumeIndex] = useState(0);
+  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
+  const [voiceURI, setVoiceURI] = useState<string | null>(null);
 
   const voiceRef = useRef<SpeechSynthesisVoice | null>(null);
   const rateRef = useRef(1);
@@ -153,18 +177,27 @@ export function useSpeech(blocks: string[], storageKey?: string): UseSpeechResul
   useEffect(() => {
     if (!synth) return;
     const pick = () => {
-      const voices = synth.getVoices();
-      if (!voices.length) return;
-      let best: SpeechSynthesisVoice | null = null;
-      let bestScore = -1;
-      voices.forEach((v) => {
-        const s = scoreVoice(v);
-        if (s > bestScore) {
-          bestScore = s;
-          best = v;
-        }
-      });
-      voiceRef.current = bestScore >= 0 ? best : null;
+      const all = synth.getVoices();
+      if (!all.length) return;
+
+      const ranked = all
+        .map((v) => ({ v, s: scoreVoice(v) }))
+        .filter((x) => x.s >= 0)
+        .sort((a, b) => b.s - a.s)
+        .map((x) => x.v);
+      setVoices(ranked);
+
+      // A voice the reader chose before wins over the ranking.
+      let saved: string | null = null;
+      try {
+        saved = window.localStorage.getItem(VOICE_KEY);
+      } catch {
+        saved = null;
+      }
+      const chosen =
+        (saved && ranked.find((v) => v.voiceURI === saved)) || ranked[0] || null;
+      voiceRef.current = chosen;
+      setVoiceURI(chosen ? chosen.voiceURI : null);
     };
     pick();
     synth.addEventListener('voiceschanged', pick);
@@ -368,6 +401,23 @@ export function useSpeech(blocks: string[], storageKey?: string): UseSpeechResul
     [playing, paused, playFromPiece]
   );
 
+  const setVoice = useCallback(
+    (uri: string) => {
+      const next = voices.find((v) => v.voiceURI === uri);
+      if (!next) return;
+      voiceRef.current = next;
+      setVoiceURI(uri);
+      try {
+        window.localStorage.setItem(VOICE_KEY, uri);
+      } catch {
+        /* storage unavailable — the choice just will not persist */
+      }
+      // Like rate, a voice only takes effect on a new utterance.
+      if (playing && !paused) playFromPiece(pieceRef.current.index);
+    },
+    [voices, playing, paused, playFromPiece]
+  );
+
   const next = useCallback(() => {
     const at = activeIndex < 0 ? 0 : activeIndex;
     playFrom(Math.min(blocksRef.current.length - 1, at + 1));
@@ -424,6 +474,9 @@ export function useSpeech(blocks: string[], storageKey?: string): UseSpeechResul
     paused,
     rate,
     resumeIndex,
+    voices,
+    voiceURI,
+    setVoice,
     setRate,
     toggle,
     stop,

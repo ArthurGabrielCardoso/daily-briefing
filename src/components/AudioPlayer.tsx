@@ -1,7 +1,11 @@
-import { useMemo, useRef } from 'react';
-import { formatClock, type UseSpeechResult } from '@/hooks/useSpeech';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { formatClock, voiceLabel, type UseSpeechResult } from '@/hooks/useSpeech';
 
-const BAR_COUNT = 64;
+/** Full-detail waveform; smaller widths sample this down so it always fits. */
+const MAX_BARS = 64;
+/** Each bar is 2px wide with a 2px gap, so a bar costs 4px of track. */
+const BAR_PITCH = 4;
+const MIN_BARS = 14;
 
 const SPEEDS: { rate: number; label: string }[] = [
   { rate: 0.9, label: '0,9×' },
@@ -11,25 +15,53 @@ const SPEEDS: { rate: number; label: string }[] = [
 ];
 
 /** Deterministic bar heights — the waveform must look identical every load. */
-function waveformHeights(): number[] {
+const BASE_HEIGHTS: number[] = (() => {
   let seed = 42;
   const rand = () => {
     seed = (seed * 9301 + 49297) % 233280;
     return seed / 233280;
   };
-  return Array.from({ length: BAR_COUNT }, () => 20 + Math.round(rand() * 80));
+  return Array.from({ length: MAX_BARS }, () => 20 + Math.round(rand() * 80));
+})();
+
+/** Evenly samples the master waveform down to `count` bars. */
+function sampleHeights(count: number): number[] {
+  if (count >= MAX_BARS) return BASE_HEIGHTS;
+  return Array.from(
+    { length: count },
+    (_, i) => BASE_HEIGHTS[Math.round((i * (MAX_BARS - 1)) / (count - 1))]
+  );
+}
+
+/** Tracks an element's width so the waveform can never overflow its track. */
+function useElementWidth(ref: React.RefObject<HTMLElement | null>): number {
+  const [width, setWidth] = useState(0);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const update = () => setWidth(el.clientWidth);
+    update();
+    if (typeof ResizeObserver === 'undefined') {
+      window.addEventListener('resize', update);
+      return () => window.removeEventListener('resize', update);
+    }
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [ref]);
+  return width;
 }
 
 function PlayIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="#0B1E3D">
+    <svg viewBox="0 0 24 24" fill="currentColor">
       <path d="M8 5v14l11-7z" />
     </svg>
   );
 }
 function PauseIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="#0B1E3D">
+    <svg viewBox="0 0 24 24" fill="currentColor">
       <path d="M6 5h4v14H6zM14 5h4v14h-4z" />
     </svg>
   );
@@ -52,6 +84,9 @@ export function AudioPlayer({ speech, compact }: AudioPlayerProps) {
     paused,
     rate,
     resumeIndex,
+    voices,
+    voiceURI,
+    setVoice,
     setRate,
     toggle,
     stop,
@@ -60,8 +95,12 @@ export function AudioPlayer({ speech, compact }: AudioPlayerProps) {
     seekFraction,
   } = speech;
 
-  const heights = useMemo(waveformHeights, []);
   const waveRef = useRef<HTMLDivElement>(null);
+  const width = useElementWidth(waveRef);
+  const barCount = width
+    ? Math.max(MIN_BARS, Math.min(MAX_BARS, Math.floor((width + 2) / BAR_PITCH)))
+    : MAX_BARS;
+  const heights = useMemo(() => sampleHeights(barCount), [barCount]);
 
   const showPause = playing && !paused;
   const started = playing || paused;
@@ -144,6 +183,14 @@ export function AudioPlayer({ speech, compact }: AudioPlayerProps) {
     </>
   );
 
+  const stopButton = (
+    <button className="stop-btn" onClick={stop} aria-label="Parar" title="Parar">
+      <svg viewBox="0 0 24 24" fill="currentColor">
+        <rect x="6" y="6" width="12" height="12" rx="1.5" />
+      </svg>
+    </button>
+  );
+
   if (compact) {
     return (
       <div className="player player-compact">
@@ -156,11 +203,7 @@ export function AudioPlayer({ speech, compact }: AudioPlayerProps) {
             <span className="player-time">−{formatClock(remaining)}</span>
           </div>
         </div>
-        <button className="stop-btn" onClick={stop} aria-label="Parar" title="Parar">
-          <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
-            <rect x="6" y="6" width="12" height="12" rx="1.5" />
-          </svg>
-        </button>
+        {stopButton}
       </div>
     );
   }
@@ -172,7 +215,7 @@ export function AudioPlayer({ speech, compact }: AudioPlayerProps) {
       <div className="waveform-area">
         {waveform}
         <div className="player-sub">
-          <span>{label}</span>
+          <span className="player-label">{label}</span>
           <span className="player-meta">
             <span className="player-time">
               {formatClock(elapsed)} / {formatClock(elapsed + remaining)}
@@ -183,6 +226,26 @@ export function AudioPlayer({ speech, compact }: AudioPlayerProps) {
       </div>
 
       <div className="player-controls-right">
+        {voices.length > 1 ? (
+          <label className="voice-select" title="Trocar a voz da narração">
+            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path d="M12 3a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V6a3 3 0 0 1 3-3z" />
+              <path d="M5 11a1 1 0 0 1 2 0 5 5 0 0 0 10 0 1 1 0 0 1 2 0 7 7 0 0 1-6 6.92V21h-2v-3.08A7 7 0 0 1 5 11z" />
+            </svg>
+            <select
+              value={voiceURI ?? ''}
+              onChange={(e) => setVoice(e.target.value)}
+              aria-label="Voz da narração"
+            >
+              {voices.map((v) => (
+                <option key={v.voiceURI} value={v.voiceURI}>
+                  {voiceLabel(v)}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : null}
+
         <div className="speed-select" role="group" aria-label="Velocidade da narração">
           {SPEEDS.map((s) => (
             <button
@@ -195,11 +258,7 @@ export function AudioPlayer({ speech, compact }: AudioPlayerProps) {
             </button>
           ))}
         </div>
-        <button className="stop-btn" onClick={stop} aria-label="Parar" title="Parar">
-          <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
-            <rect x="6" y="6" width="12" height="12" rx="1.5" />
-          </svg>
-        </button>
+        {stopButton}
       </div>
     </div>
   );

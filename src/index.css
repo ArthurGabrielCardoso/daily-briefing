@@ -139,6 +139,7 @@
   .play-btn:hover { transform: scale(1.06); }
   .play-btn:disabled { opacity: 0.5; cursor: default; transform: none; }
   .play-btn svg { width: 18px; height: 18px; }
+  .play-btn { color: var(--navy); }
 
   .player-transport { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
   .skip-btn {
@@ -161,6 +162,9 @@
     position: relative;
     height: 34px;
     cursor: pointer;
+    /* The bar count is computed from this element's width, but clip anyway so a
+       transient measurement can never push the page sideways. */
+    overflow: hidden;
   }
   .wf-row { position: absolute; inset: 0; display: flex; align-items: center; gap: 2px; }
   .wf-bar { flex: 1; background: rgba(255,255,255,0.25); border-radius: 2px; min-width: 2px; transition: background 0.2s; }
@@ -185,6 +189,35 @@
   }
   .player-meta { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
   .player-time { font-variant-numeric: tabular-nums; color: #9E9A8B; }
+  .player-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* Voice picker — a native select keeps it accessible and usable on phones. */
+  .voice-select {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.10);
+    border-radius: 20px;
+    padding: 4px 10px 4px 9px;
+    max-width: 168px;
+    cursor: pointer;
+  }
+  .voice-select svg { width: 13px; height: 13px; color: var(--gold-bright); flex-shrink: 0; }
+  .voice-select select {
+    appearance: none;
+    background: transparent;
+    border: none;
+    color: #E3DFD1;
+    font-family: var(--sans);
+    font-size: 11.5px;
+    cursor: pointer;
+    max-width: 130px;
+    text-overflow: ellipsis;
+    padding-right: 2px;
+  }
+  .voice-select select:focus { outline: none; }
+  .voice-select option { background: var(--navy); color: #F3EFE3; }
   .player-controls-right {
     display: flex;
     align-items: center;
@@ -218,6 +251,7 @@
     display: flex; align-items: center; justify-content: center;
     border-radius: 6px;
   }
+  .stop-btn svg { width: 14px; height: 14px; }
   .stop-btn:hover { background: rgba(255,255,255,0.1); }
 
   /* ===== STICKY PLAYER ===== */
