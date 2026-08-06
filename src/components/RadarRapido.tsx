@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { MediaBlock, RadarItem } from '@/types/briefing';
+import { useReveal } from '@/hooks/useReveal';
 import { SourceLine } from './SourceLine';
 import { SvgArt } from './blocks';
 
@@ -39,6 +40,7 @@ function RadarThumb({ thumb }: { thumb: MediaBlock }) {
 
 export function RadarRapido({ radar }: { radar: RadarItem[] }) {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const reveal = useReveal<HTMLDivElement>();
   const [edges, setEdges] = useState({ left: false, right: false });
 
   const measure = useCallback(() => {
@@ -69,7 +71,7 @@ export function RadarRapido({ radar }: { radar: RadarItem[] }) {
   if (!radar.length) return null;
 
   return (
-    <section className="radar">
+    <section className="radar" id="radar">
       <div className="wrap">
         <div className="radar-head">
           <div className="eyebrow">Radar rápido</div>
@@ -98,13 +100,14 @@ export function RadarRapido({ radar }: { radar: RadarItem[] }) {
         </div>
 
         <div
-          className={`radar-scroll-wrap${edges.left ? ' fade-left' : ''}${
+          ref={reveal}
+          className={`radar-scroll-wrap reveal${edges.left ? ' fade-left' : ''}${
             edges.right ? ' fade-right' : ''
           }`}
         >
           <div className="radar-scroll" ref={scrollRef}>
             {radar.map((item, i) => (
-              <div className="radar-card" key={i}>
+              <div className="radar-card" key={i} style={{ transitionDelay: `${i * 60}ms` }}>
                 <RadarThumb thumb={item.thumb} />
                 <div className="radar-body">
                   <div className="radar-cat">{item.categoria}</div>

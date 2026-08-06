@@ -2,7 +2,7 @@ import type { Briefing } from '@/types/briefing';
 
 export function Encerramento({ encerramento }: { encerramento: Briefing['encerramento'] }) {
   return (
-    <footer className="encerramento">
+    <footer className="encerramento" id="encerramento">
       <div className="wrap">
         <div className="eyebrow">Para fechar o dia</div>
         <div className="enc-grid">

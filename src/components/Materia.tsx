@@ -1,6 +1,7 @@
 import { Fragment } from 'react';
 import type { Block, Materia as MateriaType, Tag } from '@/types/briefing';
 import { blocksAfter, blocksIn } from '@/types/briefing';
+import { useReveal } from '@/hooks/useReveal';
 import { ReadBlock } from './ReadBlock';
 import { SourceLine } from './SourceLine';
 import {
@@ -79,6 +80,7 @@ interface MateriaProps {
 
 export function Materia({ materia, readIndexOffset }: MateriaProps) {
   const { tag, variant, titulo, paragrafos, blocks, readHint, fonte } = materia;
+  const reveal = useReveal<HTMLElement>();
 
   const isDark = variant === 'dark-number' || variant === 'dark-chart';
   const isTwoCol = variant !== 'dark-number';
@@ -111,8 +113,13 @@ export function Materia({ materia, readIndexOffset }: MateriaProps) {
         : null;
 
   return (
-    <article className={isDark ? 'materia materia-dark' : 'materia'}>
+    <article
+      id={materia.id}
+      ref={reveal}
+      className={isDark ? 'materia materia-dark reveal' : 'materia reveal'}
+    >
       <div className="wrap">
+        <div className="materia-card">
         <div className="materia-head">
           <span className={`tag tag-${tag}`}>{TAG_LABELS[tag]}</span>
           <h2 className="materia-title">{titulo}</h2>
@@ -131,6 +138,7 @@ export function Materia({ materia, readIndexOffset }: MateriaProps) {
 
         {bottomBlocks.map((b, i) => renderBlock(b, i))}
         {sourceAtBottom ? <SourceLine fonte={fonte} /> : null}
+        </div>
       </div>
     </article>
   );
