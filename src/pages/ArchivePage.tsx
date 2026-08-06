@@ -58,9 +58,16 @@ export function ArchivePage() {
 
           {!error && dates && dates.length > 0 ? (
             <div className="arquivo-grid">
-              {dates.map((d) => (
-                <Link className="arquivo-card" to={`/briefing/${d}`} key={d}>
-                  <div className="arquivo-card-day">{weekdayOf(d)}</div>
+              {dates.map((d, i) => (
+                <Link
+                  className={i === 0 ? 'arquivo-card is-latest' : 'arquivo-card'}
+                  to={`/briefing/${d}`}
+                  key={d}
+                >
+                  <div className="arquivo-card-day">
+                    {weekdayOf(d)}
+                    {i === 0 ? <span className="arquivo-badge">mais recente</span> : null}
+                  </div>
                   <div className="arquivo-card-date">{formatLongDate(d)}</div>
                   <div className="arquivo-card-go">Abrir edição ↗</div>
                 </Link>

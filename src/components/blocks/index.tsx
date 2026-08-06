@@ -64,7 +64,7 @@ export function EditorialImage({
 }) {
   return (
     <div className="editorial-img" style={style}>
-      <img src={src} alt={alt} />
+      <img src={src} alt={alt} loading="lazy" decoding="async" />
       <div className="cap">
         <CaptionText caption={caption} />
       </div>

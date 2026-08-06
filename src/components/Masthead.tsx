@@ -9,12 +9,15 @@ interface MastheadProps {
   /** Word count of the article body, computed on the client. */
   words: number;
   speech: UseSpeechResult;
-  blockCount: number;
+  /** Observed by the sticky bar to know when the player has scrolled away. */
+  playerRef: React.RefObject<HTMLDivElement | null>;
 }
 
-export function Masthead({ briefing, words, speech, blockCount }: MastheadProps) {
+export function Masthead({ briefing, words, speech, playerRef }: MastheadProps) {
   const readMin = words ? Math.max(1, Math.round(words / 220)) : null;
-  const audioMin = words ? Math.max(1, Math.round(words / 155)) : null;
+  // The narration covers the read blocks, not the whole page — take the
+  // estimate from the player itself so the two numbers never disagree.
+  const audioMin = speech.total ? Math.max(1, Math.round(speech.total / 60)) : null;
   const dash = '—';
 
   return (
@@ -22,7 +25,7 @@ export function Masthead({ briefing, words, speech, blockCount }: MastheadProps)
       <div className="wrap">
         <div className="masthead-top">
           <div className="brand">
-            <Link to="/arquivo">Briefing Diário</Link>
+            Briefing Diário
             <span className="for">
               Para Arthur · {briefing.weekday}, {formatLongDate(briefing.date)}
             </span>
@@ -44,10 +47,15 @@ export function Masthead({ briefing, words, speech, blockCount }: MastheadProps)
               <b>{briefing.stats.destaques}</b>
               <span>destaques</span>
             </div>
+            <div className="meta-archive">
+              <Link to="/arquivo">Arquivo ↗</Link>
+            </div>
           </div>
         </div>
 
-        <AudioPlayer speech={speech} blockCount={blockCount} />
+        <div ref={playerRef}>
+          <AudioPlayer speech={speech} />
+        </div>
       </div>
     </header>
   );

@@ -9,6 +9,8 @@ import { Capa } from '@/components/Capa';
 import { Materia } from '@/components/Materia';
 import { RadarRapido } from '@/components/RadarRapido';
 import { Encerramento } from '@/components/Encerramento';
+import { StickyPlayer } from '@/components/StickyPlayer';
+import { EditionNav } from '@/components/EditionNav';
 
 type LoadState =
   | { kind: 'loading' }
@@ -64,7 +66,24 @@ export function BriefingPage() {
 
 function BriefingView({ briefing }: { briefing: Briefing }) {
   const articleRef = useRef<HTMLElement>(null);
+  const playerRef = useRef<HTMLDivElement>(null);
   const [words, setWords] = useState(0);
+  const [dates, setDates] = useState<string[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/briefings')
+      .then((res) => res.json())
+      .then((json) => {
+        if (!cancelled && Array.isArray(json.dates)) setDates(json.dates);
+      })
+      .catch(() => {
+        /* navigation between editions is a bonus — the page works without it */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   /** Read blocks in document order: the cover lede, then every paragraph. */
   const readBlocks = useMemo(() => {
@@ -83,7 +102,7 @@ function BriefingView({ briefing }: { briefing: Briefing }) {
     });
   }, [briefing]);
 
-  const speech = useSpeech(readBlocks);
+  const speech = useSpeech(readBlocks, `briefing:pos:${briefing.date}`);
 
   useEffect(() => {
     const el = articleRef.current;
@@ -107,12 +126,9 @@ function BriefingView({ briefing }: { briefing: Briefing }) {
       }}
     >
       <div className="briefing">
-        <Masthead
-          briefing={briefing}
-          words={words}
-          speech={speech}
-          blockCount={readBlocks.length}
-        />
+        <StickyPlayer speech={speech} anchorRef={playerRef} />
+
+        <Masthead briefing={briefing} words={words} speech={speech} playerRef={playerRef} />
         <SeuDia seuDia={briefing.seuDia} />
 
         <main ref={articleRef}>
@@ -124,6 +140,7 @@ function BriefingView({ briefing }: { briefing: Briefing }) {
         </main>
 
         <Encerramento encerramento={briefing.encerramento} />
+        <EditionNav dates={dates} current={briefing.date} />
       </div>
     </ReadingProvider>
   );
