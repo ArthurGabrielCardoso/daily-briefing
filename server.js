@@ -1,6 +1,9 @@
-const express = require('express');
-const fs = require('fs');
-const path = require('path');
+import express from 'express';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -8,6 +11,7 @@ const API_KEY = process.env.API_KEY || 'changeme';
 const DATA_DIR = path.join(__dirname, 'data');
 const NOTES_FILE = path.join(DATA_DIR, 'notes.json');
 const BRIEFINGS_DIR = path.join(DATA_DIR, 'briefings');
+const DIST_DIR = path.join(__dirname, 'dist');
 
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 if (!fs.existsSync(BRIEFINGS_DIR)) fs.mkdirSync(BRIEFINGS_DIR, { recursive: true });
@@ -32,10 +36,13 @@ function writeNotes(notes) {
 function listBriefings() {
   if (!fs.existsSync(BRIEFINGS_DIR)) return [];
   return fs.readdirSync(BRIEFINGS_DIR)
-    .filter(f => f.endsWith('.html'))
-    .map(f => f.replace('.html', ''))
+    .filter(f => f.endsWith('.json'))
+    .map(f => f.replace('.json', ''))
     .sort()
     .reverse();
+}
+function briefingFile(date) {
+  return path.join(BRIEFINGS_DIR, date + '.json');
 }
 
 // ---- Notes API (persistent memory for personalization) ----
@@ -64,7 +71,7 @@ app.delete('/api/notes/:id', requireKey, (req, res) => {
   res.json({ ok: true });
 });
 
-// ---- Briefings API (daily HTML archive) ----
+// ---- Briefings API (daily JSON archive) ----
 app.get('/api/briefings', (req, res) => {
   res.json({ dates: listBriefings() });
 });
@@ -72,56 +79,39 @@ app.get('/api/briefings', (req, res) => {
 app.get('/api/briefings/latest', (req, res) => {
   const dates = listBriefings();
   if (!dates.length) return res.status(404).json({ error: 'none yet' });
-  res.sendFile(path.join(BRIEFINGS_DIR, dates[0] + '.html'));
+  res.sendFile(briefingFile(dates[0]));
 });
 
 app.get('/api/briefings/:date', (req, res) => {
-  const file = path.join(BRIEFINGS_DIR, req.params.date + '.html');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(req.params.date)) return res.status(400).json({ error: 'date must be YYYY-MM-DD' });
+  const file = briefingFile(req.params.date);
   if (!fs.existsSync(file)) return res.status(404).json({ error: 'not found' });
   res.sendFile(file);
 });
 
 app.post('/api/briefings', requireKey, (req, res) => {
-  const { date, html } = req.body || {};
-  if (!date || !html) return res.status(400).json({ error: 'date and html required' });
+  const { date, content } = req.body || {};
+  if (!date || !content) return res.status(400).json({ error: 'date and content required' });
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return res.status(400).json({ error: 'date must be YYYY-MM-DD' });
-  fs.writeFileSync(path.join(BRIEFINGS_DIR, date + '.html'), html, 'utf8');
+  if (typeof content !== 'object' || Array.isArray(content)) return res.status(400).json({ error: 'content must be a briefing object' });
+  fs.writeFileSync(briefingFile(date), JSON.stringify(content, null, 2), 'utf8');
   res.json({ ok: true, date });
 });
 
-// ---- Frontend ----
-app.get('/', (req, res) => {
-  const dates = listBriefings();
-  if (!dates.length) {
-    return res.send(renderShell('<p style="padding:40px;font-family:sans-serif;color:#6B6A63;">Nenhuma edição publicada ainda.</p>'));
+// Unknown API routes must not fall through to the SPA shell.
+app.use('/api', (req, res) => res.status(404).json({ error: 'not found' }));
+
+// ---- Frontend (Vite build) ----
+app.use(express.static(DIST_DIR));
+
+app.get('*', (req, res) => {
+  const shell = path.join(DIST_DIR, 'index.html');
+  if (!fs.existsSync(shell)) {
+    return res
+      .status(503)
+      .send('<p style="padding:40px;font-family:sans-serif;color:#5B5850;">Build ausente — rode <code>npm run build</code>.</p>');
   }
-  res.redirect('/briefing/' + dates[0]);
+  res.sendFile(shell);
 });
-
-app.get('/briefing/:date', (req, res) => {
-  const file = path.join(BRIEFINGS_DIR, req.params.date + '.html');
-  if (!fs.existsSync(file)) return res.status(404).send(renderShell('<p style="padding:40px;font-family:sans-serif;">Edição não encontrada.</p>'));
-  res.sendFile(file);
-});
-
-app.get('/arquivo', (req, res) => {
-  const dates = listBriefings();
-  const items = dates.map(d => {
-    const label = new Date(d + 'T12:00:00').toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
-    return `<a href="/briefing/${d}" style="display:block;padding:16px 20px;border-bottom:1px solid #E7E1D4;color:#1C1B18;text-decoration:none;font-family:-apple-system,'Segoe UI',sans-serif;">
-      <div style="font-size:15px;font-weight:600;text-transform:capitalize;">${label}</div>
-    </a>`;
-  }).join('');
-  res.send(renderShell(`
-    <div style="max-width:640px;margin:0 auto;padding:40px 20px;">
-      <h1 style="font-family:Georgia,serif;font-size:26px;color:#0B1E3D;margin-bottom:24px;">Arquivo — Briefing Diário</h1>
-      <div style="background:#fff;border-radius:12px;overflow:hidden;border:1px solid #E7E1D4;">${items || '<p style="padding:20px;">Nada ainda.</p>'}</div>
-    </div>
-  `));
-});
-
-function renderShell(inner) {
-  return `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Briefing Diário</title><style>body{margin:0;background:#FAF6EF;}</style></head><body>${inner}</body></html>`;
-}
 
 app.listen(PORT, () => console.log('Briefing app listening on ' + PORT));
