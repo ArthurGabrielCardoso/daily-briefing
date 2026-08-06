@@ -42,7 +42,7 @@ function CapaMedia({ media }: { media: Briefing['capa']['media'] }) {
 
 export function Capa({ capa, readIndex }: CapaProps) {
   return (
-    <section className="capa">
+    <section className="capa" id="capa">
       <div className="wrap capa-grid">
         <div>
           <div className="eyebrow">{capa.eyebrow}</div>

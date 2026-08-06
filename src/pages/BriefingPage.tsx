@@ -11,6 +11,7 @@ import { RadarRapido } from '@/components/RadarRapido';
 import { Encerramento } from '@/components/Encerramento';
 import { StickyPlayer } from '@/components/StickyPlayer';
 import { EditionNav } from '@/components/EditionNav';
+import { SectionRail, type RailItem } from '@/components/SectionRail';
 
 type LoadState =
   | { kind: 'loading' }
@@ -102,6 +103,14 @@ function BriefingView({ briefing }: { briefing: Briefing }) {
     });
   }, [briefing]);
 
+  const railItems = useMemo<RailItem[]>(() => {
+    const items: RailItem[] = [{ id: 'capa', label: 'Capa' }];
+    briefing.materias.forEach((m) => items.push({ id: m.id, label: m.titulo }));
+    if (briefing.radar.length) items.push({ id: 'radar', label: 'Radar rápido' });
+    items.push({ id: 'encerramento', label: 'Para fechar o dia' });
+    return items;
+  }, [briefing]);
+
   const speech = useSpeech(readBlocks, `briefing:pos:${briefing.date}`);
 
   useEffect(() => {
@@ -127,6 +136,7 @@ function BriefingView({ briefing }: { briefing: Briefing }) {
     >
       <div className="briefing">
         <StickyPlayer speech={speech} anchorRef={playerRef} />
+        <SectionRail items={railItems} />
 
         <Masthead briefing={briefing} words={words} speech={speech} playerRef={playerRef} />
         <SeuDia seuDia={briefing.seuDia} />
