@@ -767,6 +767,7 @@
       box-shadow: 0 -6px 24px rgba(6,16,34,0.32);
     }
     .sticky-player.is-visible { transform: translateY(0); }
+    body.has-sticky-player { padding-bottom: var(--sticky-h, 84px); }
     .player-compact { flex-wrap: nowrap; gap: 10px; }
     .player-compact .player-transport { gap: 4px; }
 

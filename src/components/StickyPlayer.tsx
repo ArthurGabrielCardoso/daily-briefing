@@ -1,4 +1,4 @@
-import { useEffect, useState, type RefObject } from 'react';
+import { useEffect, useRef, useState, type RefObject } from 'react';
 import type { UseSpeechResult } from '@/hooks/useSpeech';
 import { AudioPlayer } from './AudioPlayer';
 
@@ -14,6 +14,7 @@ interface StickyPlayerProps {
  */
 export function StickyPlayer({ speech, anchorRef }: StickyPlayerProps) {
   const [anchorVisible, setAnchorVisible] = useState(true);
+  const barRef = useRef<HTMLDivElement>(null);
   const active = speech.playing || speech.paused;
 
   useEffect(() => {
@@ -29,8 +30,28 @@ export function StickyPlayer({ speech, anchorRef }: StickyPlayerProps) {
 
   const shown = active && !anchorVisible;
 
+  // On phones the bar sits at the bottom, so the page has to give back exactly
+  // the space it covers — otherwise the sign-off hides underneath it, and a
+  // rounded-up guess would leave a strip of page background showing.
+  useEffect(() => {
+    document.body.classList.toggle('has-sticky-player', shown);
+    if (shown && barRef.current) {
+      document.body.style.setProperty('--sticky-h', `${barRef.current.offsetHeight}px`);
+    } else {
+      document.body.style.removeProperty('--sticky-h');
+    }
+    return () => {
+      document.body.classList.remove('has-sticky-player');
+      document.body.style.removeProperty('--sticky-h');
+    };
+  }, [shown]);
+
   return (
-    <div className={shown ? 'sticky-player is-visible' : 'sticky-player'} aria-hidden={!shown}>
+    <div
+      ref={barRef}
+      className={shown ? 'sticky-player is-visible' : 'sticky-player'}
+      aria-hidden={!shown}
+    >
       <div className="sticky-player-inner">
         <AudioPlayer speech={speech} compact />
       </div>
