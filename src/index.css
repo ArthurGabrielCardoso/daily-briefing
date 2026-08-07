@@ -168,6 +168,7 @@
     letter-spacing: 0.01em;
   }
   .brand .for { font-family: var(--sans); font-weight: 400; font-size: 13px; color: var(--gold-bright); display: block; margin-top: 5px; letter-spacing: 0.06em; text-transform: uppercase; }
+  /* Only the archive page still shows counters in the masthead. */
   .meta-stats {
     display: flex;
     gap: 24px;
@@ -216,22 +217,6 @@
   .play-btn svg { width: 18px; height: 18px; }
   .play-btn { color: var(--navy); }
 
-  .player-transport { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
-  .skip-btn {
-    border: none;
-    background: transparent;
-    color: #C9C4B4;
-    cursor: pointer;
-    width: 30px; height: 30px;
-    display: flex; align-items: center; justify-content: center;
-    border-radius: 8px;
-    flex-shrink: 0;
-    transition: background 0.15s ease, color 0.15s ease;
-  }
-  .skip-btn svg { width: 16px; height: 16px; }
-  .skip-btn:hover:not(:disabled) { background: rgba(255,255,255,0.10); color: #F3EFE3; }
-  .skip-btn:disabled { opacity: 0.35; cursor: default; }
-
   .waveform-area { flex: 1; min-width: 0; }
   .waveform {
     position: relative;
@@ -266,68 +251,28 @@
   .player-time { font-variant-numeric: tabular-nums; color: #9E9A8B; }
   .player-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-  /* Voice picker — a native select keeps it accessible and usable on phones. */
-  .voice-select {
-    display: flex;
-    align-items: center;
-    gap: 6px;
+  /* One control, cycling 1× → 1,25× → 1,5× → 2× → 1×. */
+  .speed-btn {
+    flex-shrink: 0;
+    border: 1px solid rgba(255,255,255,0.16);
     background: rgba(255,255,255,0.08);
-    border: 1px solid rgba(255,255,255,0.10);
-    border-radius: 20px;
-    padding: 4px 10px 4px 9px;
-    max-width: 168px;
-    cursor: pointer;
-  }
-  .voice-select svg { width: 13px; height: 13px; color: var(--gold-bright); flex-shrink: 0; }
-  .voice-select select {
-    appearance: none;
-    background: transparent;
-    border: none;
     color: #E3DFD1;
     font-family: var(--sans);
-    font-size: 11.5px;
-    cursor: pointer;
-    max-width: 130px;
-    text-overflow: ellipsis;
-    padding-right: 2px;
-  }
-  .voice-select select:focus { outline: none; }
-  .voice-select option { background: var(--navy); color: #F3EFE3; }
-  .player-controls-right {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    flex-shrink: 0;
-  }
-  .speed-select {
-    display: flex;
-    background: rgba(255,255,255,0.08);
+    font-size: 12.5px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    min-width: 56px;
+    padding: 8px 12px;
     border-radius: 20px;
-    padding: 3px;
-    gap: 2px;
-  }
-  .speed-btn {
-    border: none;
-    background: transparent;
-    color: #C9C4B4;
-    font-size: 11.5px;
-    padding: 5px 9px;
-    border-radius: 16px;
     cursor: pointer;
-    font-family: var(--sans);
+    transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
   }
-  .speed-btn.active { background: var(--gold-bright); color: var(--navy); font-weight: 600; }
-  .stop-btn {
-    border: none;
-    background: transparent;
-    color: #C9C4B4;
-    cursor: pointer;
-    width: 26px; height: 26px;
-    display: flex; align-items: center; justify-content: center;
-    border-radius: 6px;
+  .speed-btn:hover:not(:disabled) {
+    background: rgba(255,255,255,0.14);
+    border-color: var(--gold-bright);
+    color: #fff;
   }
-  .stop-btn svg { width: 14px; height: 14px; }
-  .stop-btn:hover { background: rgba(255,255,255,0.1); }
+  .speed-btn:disabled { opacity: 0.4; cursor: default; }
 
   /* ===== STICKY PLAYER ===== */
   .sticky-player {
@@ -711,23 +656,7 @@
   .radar-arrow:hover:not(:disabled) { border-color: var(--gold); color: var(--ink); }
   .radar-arrow:disabled { opacity: 0.35; cursor: default; }
 
-  /* Soft edges hint that the rail keeps going. */
   .radar-scroll-wrap { position: relative; }
-  .radar-scroll-wrap::before,
-  .radar-scroll-wrap::after {
-    content: '';
-    position: absolute;
-    top: 0; bottom: 14px;
-    width: 44px;
-    pointer-events: none;
-    opacity: 0;
-    transition: opacity 0.2s ease;
-    z-index: 1;
-  }
-  .radar-scroll-wrap::before { left: 0; background: linear-gradient(90deg, #F1ECDF, rgba(241,236,223,0)); }
-  .radar-scroll-wrap::after { right: 0; background: linear-gradient(270deg, #F1ECDF, rgba(241,236,223,0)); }
-  .radar-scroll-wrap.fade-left::before { opacity: 1; }
-  .radar-scroll-wrap.fade-right::after { opacity: 1; }
 
   .radar-scroll {
     display: flex;
@@ -740,8 +669,27 @@
     padding-right: 24px;
     scroll-snap-type: x proximity;
     scroll-padding-left: 24px;
+    --fade: 44px;
   }
   .radar-card { scroll-snap-align: start; }
+
+  /* The rail is faded with a mask on the scroller itself, not with gradient
+     overlays on a wrapper: the wrapper is inset 24px from where the rail
+     actually ends (negative margins), so overlays sat in the wrong place and
+     painted over the cards instead of at the edge. A mask always tracks the
+     real edge and can never cover content. */
+  .radar-scroll.fade-right {
+    -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - var(--fade)), transparent);
+    mask-image: linear-gradient(90deg, #000 calc(100% - var(--fade)), transparent);
+  }
+  .radar-scroll.fade-left {
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 var(--fade));
+    mask-image: linear-gradient(90deg, transparent, #000 var(--fade));
+  }
+  .radar-scroll.fade-left.fade-right {
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 var(--fade), #000 calc(100% - var(--fade)), transparent);
+    mask-image: linear-gradient(90deg, transparent, #000 var(--fade), #000 calc(100% - var(--fade)), transparent);
+  }
   .radar-scroll::-webkit-scrollbar { display: none; }
   .radar-card {
     background: var(--card-bg);
@@ -914,8 +862,6 @@
     .enc-grid { grid-template-columns: 1fr; gap: 24px; }
     .big-number { font-size: 56px; }
     .seu-dia-terrain { display: none; }
-    .player { flex-wrap: wrap; }
-    .player-controls-right { order: 3; width: 100%; justify-content: space-between; margin-top: 8px; }
     .masthead-top { flex-direction: column; }
     .bar-label { width: 78px; font-size: 11.5px; }
     .arquivo-title { font-size: 26px; }
@@ -933,12 +879,7 @@
     .sticky-player.is-visible { transform: translateY(0); }
     body.has-sticky-player { padding-bottom: var(--sticky-h, 84px); }
     .player-compact { flex-wrap: nowrap; gap: 10px; }
-    .player-compact .player-transport { gap: 4px; }
-
-    /* Give the voice picker its own line so it never squeezes the speeds. */
-    .player-controls-right { flex-wrap: wrap; row-gap: 8px; }
-    .voice-select { order: -1; flex: 1 1 100%; max-width: none; }
-    .voice-select select { flex: 1; max-width: none; }
+  
     .player-sub { flex-direction: column; align-items: flex-start; gap: 2px; }
     .player-label { white-space: normal; }
     .player-compact .player-sub { flex-direction: row; align-items: center; }
