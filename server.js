@@ -2,7 +2,7 @@ import express from 'express';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { generateAudio, readManifest } from './server/tts.js';
+import { generateAudio, generateVoiceSamples, readManifest, readSamples } from './server/tts.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -151,6 +151,25 @@ app.post('/api/briefings/:date/audio', requireKey, async (req, res) => {
   }
 });
 
+// ---- Voice samples (for choosing the narration voice by ear) ----
+app.get('/api/voices', (req, res) => {
+  const samples = readSamples(DATA_DIR);
+  if (!samples) return res.status(404).json({ error: 'no samples' });
+  res.json({ ...samples, current: process.env.TTS_VOICE || null });
+});
+
+app.post('/api/voices/samples', requireKey, async (req, res) => {
+  try {
+    const manifest = await generateVoiceSamples(DATA_DIR, {
+      force: req.query.force === '1',
+      log: (m) => console.log(`[tts amostras] ${m}`),
+    });
+    res.json({ ok: true, voices: manifest.voices.length });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Unknown API routes must not fall through to the SPA shell.
 app.use('/api', (req, res) => res.status(404).json({ error: 'not found' }));
 
@@ -195,7 +214,18 @@ function generateMissingAudio() {
     .catch((err) => console.error(`[tts ${latest}] falhou: ${err.message}`));
 }
 
+/**
+ * Opt-in via TTS_SAMPLES=1, because rendering all 30 voices costs ~4k characters
+ * and is only worth doing while a voice is being chosen — not on every boot.
+ */
+function generateSamplesIfAsked() {
+  if (process.env.TTS_SAMPLES !== '1' || !process.env.GOOGLE_TTS_API_KEY) return;
+  generateVoiceSamples(DATA_DIR, { log: (m) => console.log(`[tts amostras] ${m}`) })
+    .catch((err) => console.error(`[tts amostras] falhou: ${err.message}`));
+}
+
 app.listen(PORT, () => {
   console.log('Briefing app listening on ' + PORT);
   generateMissingAudio();
+  generateSamplesIfAsked();
 });
