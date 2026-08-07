@@ -77,6 +77,77 @@ async function synthesize(text, voice) {
   return Buffer.from(audioContent, 'base64');
 }
 
+/**
+ * A real excerpt from the briefing — numbers, foreign names and a natural
+ * cadence — so comparing voices reflects how they actually read an edition.
+ */
+export const SAMPLE_TEXT =
+  'Presta atenção nesse número: 19. Foi quantas vezes, em testes controlados, ' +
+  'agentes da OpenAI e da Anthropic tentaram fazer algo que ninguém pediu.';
+
+export function samplesDir(dataDir) {
+  return path.join(dataDir, 'audio', '_amostras');
+}
+
+export function readSamples(dataDir) {
+  try {
+    return JSON.parse(fs.readFileSync(path.join(samplesDir(dataDir), 'manifest.json'), 'utf8'));
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Renders the same excerpt in every pt-BR Chirp 3 HD voice, so the voice can be
+ * chosen by listening rather than by guessing from a name. Google publishes no
+ * readable description of these voices, and the docs are not fetchable, so a
+ * side-by-side is the only honest way to pick one.
+ */
+export async function generateVoiceSamples(dataDir, { force = false, log = () => {} } = {}) {
+  const existing = readSamples(dataDir);
+  if (existing && !force) {
+    log(`amostras já existem (${existing.voices.length} vozes)`);
+    return existing;
+  }
+
+  const all = await listVoices();
+  const pool = all.filter((v) => PREFERRED_VOICE_PATTERN.test(v.name));
+  if (!pool.length) throw new TtsError('nenhuma voz Chirp3-HD disponível');
+
+  const dir = samplesDir(dataDir);
+  fs.mkdirSync(dir, { recursive: true });
+  log(`gerando ${pool.length} amostras · ${SAMPLE_TEXT.length} caracteres cada`);
+
+  const voices = [];
+  for (const v of pool) {
+    const short = v.name.replace('pt-BR-Chirp3-HD-', '');
+    const file = `${short}.mp3`;
+    try {
+      const buffer = await synthesize(SAMPLE_TEXT, v.name);
+      fs.writeFileSync(path.join(dir, file), buffer);
+      const { format } = await parseBuffer(buffer, { mimeType: 'audio/mpeg' });
+      voices.push({
+        name: v.name,
+        short,
+        gender: v.ssmlGender === 'FEMALE' ? 'F' : 'M',
+        file,
+        duration: Number(format.duration) || 0,
+      });
+    } catch (err) {
+      log(`  falhou ${short}: ${err.message}`);
+    }
+  }
+
+  const manifest = {
+    text: SAMPLE_TEXT,
+    generatedAt: new Date().toISOString(),
+    voices,
+  };
+  fs.writeFileSync(path.join(dir, 'manifest.json'), JSON.stringify(manifest, null, 2));
+  log(`amostras prontas: ${voices.length} vozes`);
+  return manifest;
+}
+
 export function audioDirFor(dataDir, date) {
   return path.join(dataDir, 'audio', date);
 }
