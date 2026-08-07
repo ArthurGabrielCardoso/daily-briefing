@@ -113,6 +113,18 @@ export async function generateAudio(dataDir, date, briefing, { force = false, lo
     throw new TtsError(`edição com ${totalChars} caracteres excede o limite de ${MAX_CHARS}`);
   }
 
+  // Log the whole catalogue: the pt-BR Chirp 3 HD line-up is not documented
+  // anywhere we can read, so this is how we find out what there is to choose from.
+  try {
+    const all = await listVoices();
+    const hd = all.filter((v) => PREFERRED_VOICE_PATTERN.test(v.name));
+    const fmt = (v) => `${v.name.replace('pt-BR-Chirp3-HD-', '')}(${v.ssmlGender[0]})`;
+    log(`vozes pt-BR: ${all.length} no total, ${hd.length} Chirp3-HD`);
+    if (hd.length) log(`  Chirp3-HD: ${hd.map(fmt).join(' ')}`);
+  } catch {
+    /* listing is diagnostics only — never block generation on it */
+  }
+
   const voice = await resolveVoice();
   log(`voz: ${voice} · ${blocks.length} blocos · ${totalChars} caracteres`);
 

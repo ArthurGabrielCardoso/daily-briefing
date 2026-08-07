@@ -7,12 +7,12 @@ const MAX_BARS = 64;
 const BAR_PITCH = 4;
 const MIN_BARS = 14;
 
-const SPEEDS: { rate: number; label: string }[] = [
-  { rate: 0.9, label: '0,9×' },
-  { rate: 1, label: '1×' },
-  { rate: 1.15, label: '1,15×' },
-  { rate: 1.3, label: '1,3×' },
-];
+/** One control cycles through these in order and wraps back to the start. */
+const SPEEDS = [1, 1.25, 1.5, 2] as const;
+
+function speedLabel(rate: number): string {
+  return `${String(rate).replace('.', ',')}×`;
+}
 
 /** Deterministic bar heights — the waveform must look identical every load. */
 const BASE_HEIGHTS: number[] = (() => {
@@ -86,9 +86,6 @@ export function AudioPlayer({ speech, compact }: AudioPlayerProps) {
     resumeIndex,
     setRate,
     toggle,
-    stop,
-    next,
-    prev,
     seekFraction,
   } = speech;
 
@@ -109,6 +106,11 @@ export function AudioPlayer({ speech, compact }: AudioPlayerProps) {
       : resumeIndex > 0
         ? 'Retomar de onde você parou'
         : 'Ouvir o briefing de hoje';
+
+  const cycleSpeed = () => {
+    const i = SPEEDS.indexOf(rate as (typeof SPEEDS)[number]);
+    setRate(SPEEDS[(i + 1) % SPEEDS.length]);
+  };
 
   const seek = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!supported || !waveRef.current) return;
@@ -145,98 +147,67 @@ export function AudioPlayer({ speech, compact }: AudioPlayerProps) {
     </div>
   );
 
-  const transport = (
-    <>
-      <button
-        className="skip-btn"
-        onClick={prev}
-        disabled={!supported}
-        aria-label="Parágrafo anterior"
-        title="Parágrafo anterior"
-      >
-        <svg viewBox="0 0 24 24" fill="currentColor">
-          <path d="M7 6h2v12H7zM19 6v12l-9-6z" />
-        </svg>
-      </button>
-      <button
-        className="play-btn"
-        onClick={toggle}
-        disabled={!supported}
-        aria-label={showPause ? 'Pausar' : 'Reproduzir'}
-      >
-        {showPause ? <PauseIcon /> : <PlayIcon />}
-      </button>
-      <button
-        className="skip-btn"
-        onClick={next}
-        disabled={!supported}
-        aria-label="Próximo parágrafo"
-        title="Próximo parágrafo"
-      >
-        <svg viewBox="0 0 24 24" fill="currentColor">
-          <path d="M15 6h2v12h-2zM5 6l9 6-9 6z" />
-        </svg>
-      </button>
-    </>
+  const playButton = (
+    <button
+      className="play-btn"
+      onClick={toggle}
+      disabled={!supported}
+      aria-label={showPause ? 'Pausar' : 'Reproduzir'}
+    >
+      {showPause ? <PauseIcon /> : <PlayIcon />}
+    </button>
   );
 
-  const stopButton = (
-    <button className="stop-btn" onClick={stop} aria-label="Parar" title="Parar">
-      <svg viewBox="0 0 24 24" fill="currentColor">
-        <rect x="6" y="6" width="12" height="12" rx="1.5" />
-      </svg>
+  const speedButton = (
+    <button
+      className="speed-btn"
+      onClick={cycleSpeed}
+      disabled={!supported}
+      aria-label={`Velocidade da narração: ${speedLabel(rate)}. Toque para mudar.`}
+      title="Velocidade"
+    >
+      {speedLabel(rate)}
     </button>
+  );
+
+  // The status still reaches screen readers, it just no longer takes up space.
+  const liveStatus = (
+    <span className="sr-only" aria-live="polite">
+      {status}
+    </span>
   );
 
   if (compact) {
     return (
       <div className="player player-compact">
-        <div className="player-transport">{transport}</div>
+        {playButton}
         <div className="waveform-area">
           {waveform}
           <div className="player-sub">
             <span className="player-time">{formatClock(elapsed)}</span>
-            <span aria-live="polite">{status}</span>
             <span className="player-time">−{formatClock(remaining)}</span>
           </div>
         </div>
-        {stopButton}
+        {speedButton}
+        {liveStatus}
       </div>
     );
   }
 
   return (
     <div className="player">
-      <div className="player-transport">{transport}</div>
-
+      {playButton}
       <div className="waveform-area">
         {waveform}
         <div className="player-sub">
           <span className="player-label">{label}</span>
-          <span className="player-meta">
-            <span className="player-time">
-              {formatClock(elapsed)} / {formatClock(elapsed + remaining)}
-            </span>
-            <span aria-live="polite">{status}</span>
+          <span className="player-time">
+            {formatClock(elapsed)} / {formatClock(elapsed + remaining)}
           </span>
         </div>
       </div>
-
-      <div className="player-controls-right">
-        <div className="speed-select" role="group" aria-label="Velocidade da narração">
-          {SPEEDS.map((s) => (
-            <button
-              key={s.rate}
-              className={s.rate === rate ? 'speed-btn active' : 'speed-btn'}
-              onClick={() => setRate(s.rate)}
-              aria-pressed={s.rate === rate}
-            >
-              {s.label}
-            </button>
-          ))}
-        </div>
-        {stopButton}
-      </div>
+      {speedButton}
+      {liveStatus}
     </div>
   );
 }

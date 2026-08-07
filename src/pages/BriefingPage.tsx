@@ -67,9 +67,7 @@ export function BriefingPage() {
 }
 
 function BriefingView({ briefing }: { briefing: Briefing }) {
-  const articleRef = useRef<HTMLElement>(null);
   const playerRef = useRef<HTMLDivElement>(null);
-  const [words, setWords] = useState(0);
   const [dates, setDates] = useState<string[]>([]);
 
   useEffect(() => {
@@ -103,13 +101,6 @@ function BriefingView({ briefing }: { briefing: Briefing }) {
   const speech = useNarration(readBlocks, manifest, `briefing:pos:${briefing.date}`);
 
   useEffect(() => {
-    const el = articleRef.current;
-    if (!el) return;
-    const text = el.innerText || el.textContent || '';
-    setWords(text.trim().split(/\s+/).filter(Boolean).length);
-  }, [briefing]);
-
-  useEffect(() => {
     document.title = `Briefing Diário — Arthur — ${new Date(
       briefing.date + 'T12:00:00'
     ).toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' })}`;
@@ -127,10 +118,10 @@ function BriefingView({ briefing }: { briefing: Briefing }) {
         <StickyPlayer speech={speech} anchorRef={playerRef} />
         <SectionRail items={railItems} />
 
-        <Masthead briefing={briefing} words={words} speech={speech} playerRef={playerRef} />
+        <Masthead briefing={briefing} speech={speech} playerRef={playerRef} />
         <SeuDia seuDia={briefing.seuDia} />
 
-        <main ref={articleRef}>
+        <main>
           <Capa capa={briefing.capa} readIndex={0} />
           {briefing.materias.map((materia, i) => (
             <Materia key={materia.id} materia={materia} readIndexOffset={offsets[i]} />

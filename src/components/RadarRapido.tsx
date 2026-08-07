@@ -99,13 +99,13 @@ export function RadarRapido({ radar }: { radar: RadarItem[] }) {
           </div>
         </div>
 
-        <div
-          ref={reveal}
-          className={`radar-scroll-wrap reveal${edges.left ? ' fade-left' : ''}${
-            edges.right ? ' fade-right' : ''
-          }`}
-        >
-          <div className="radar-scroll" ref={scrollRef}>
+        <div ref={reveal} className="radar-scroll-wrap reveal">
+          <div
+            className={`radar-scroll${edges.left ? ' fade-left' : ''}${
+              edges.right ? ' fade-right' : ''
+            }`}
+            ref={scrollRef}
+          >
             {radar.map((item, i) => (
               <div className="radar-card" key={i} style={{ transitionDelay: `${i * 60}ms` }}>
                 <RadarThumb thumb={item.thumb} />
