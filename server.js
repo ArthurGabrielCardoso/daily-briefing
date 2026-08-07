@@ -170,4 +170,32 @@ app.get('*', (req, res) => {
   res.sendFile(shell);
 });
 
-app.listen(PORT, () => console.log('Briefing app listening on ' + PORT));
+/**
+ * Renders the newest edition's narration on boot when it is missing.
+ *
+ * Without a mounted volume the audio directory is wiped on every deploy, so
+ * self-healing here is what keeps narration available at all. Deliberately
+ * limited to the single newest edition — that bounds a boot at ~4k characters,
+ * so even frequent deploys stay far inside the monthly free quota.
+ */
+function generateMissingAudio() {
+  if (!process.env.GOOGLE_TTS_API_KEY) {
+    console.log('tts: GOOGLE_TTS_API_KEY ausente — narração usa a voz do navegador');
+    return;
+  }
+  const [latest] = listBriefings();
+  if (!latest) return;
+  if (readManifest(DATA_DIR, latest)) {
+    console.log(`tts: ${latest} já tem narração`);
+    return;
+  }
+  console.log(`tts: gerando narração de ${latest}…`);
+  const briefing = JSON.parse(fs.readFileSync(briefingFile(latest), 'utf8'));
+  generateAudio(DATA_DIR, latest, briefing, { log: (m) => console.log(`[tts ${latest}] ${m}`) })
+    .catch((err) => console.error(`[tts ${latest}] falhou: ${err.message}`));
+}
+
+app.listen(PORT, () => {
+  console.log('Briefing app listening on ' + PORT);
+  generateMissingAudio();
+});
